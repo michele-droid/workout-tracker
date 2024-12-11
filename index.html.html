@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scheda Allenamento</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+        }
+
+        .tab.active {
+            background: #007bff;
+            color: white;
+            border-radius: 4px;
+        }
+
+        .exercise-card {
+            background: white;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .exercise-card.completed {
+            background: #e8f5e9;
+        }
+
+        .exercise-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .exercise-info {
+            margin-left: 15px;
+        }
+
+        .exercise-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .sets-info {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .weight-inputs {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .weight-input {
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="number"] {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+
+        .reps {
+            color: #666;
+            font-size: 14px;
+            min-width: 50px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .notes {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 10px;
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .timer {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: none;
+            z-index: 1000;
+        }
+
+        .timer.active {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        #notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background: #4CAF50;
+            color: white;
+            display: none;
+            z-index: 1000;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div id="notification"></div>
+
+    <div class="header">
+        <h1>SCHEDA PERSONALE</h1>
+        <div style="margin-top: 10px;">
+            <p><strong>Nome e Cognome:</strong> MICHELE DE ROSA</p>
+            <p><strong>Data Inizio:</strong> 02/12/2024</p>
+            <p><strong>Durata:</strong> 10 Settimane</p>
+            <p><strong>Istruttore:</strong> Izzo R.</p>
+        </div>
+    </div>
+
+    <div class="actions">
+        <button onclick="exportData()">Esporta Dati</button>
+        <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+        <button onclick="document.getElementById('importFile').click()">Importa Dati</button>
+        <button onclick="resetData()">Reset Dati</button>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" onclick="showDay(1)">Giorno 1</button>
+        <button class="tab" onclick="showDay(2)">Giorno 2</button>
+        <button class="tab" onclick="showDay(3)">Giorno 3</button>
+    </div>
+
+    <div id="day1" class="tab-content active"></div>
+    <div id="day2" class="tab-content"></div>
+    <div id="day3" class="tab-content"></div>
+
+    <div id="timer" class="timer">
+        <span id="timer-display">Riposo: 60s</span>
+        <button onclick="stopTimer()">Stop</button>
+    </div>
+
+    <script>
+        const workoutData = {
+            1: [
+                { name: "PANCA PIANA BILANCIERE", sets: "4x12x10x8x6" },
+                { name: "CROCI PANCA 30", sets: "3x12" },
+                { name: "DISTENSIONI PANCA 30 MANUBRI", sets: "4x8" },
+                { name: "FRENCH PRESS EZ", sets: "4x8" },
+                { name: "PUSH DOWN FUNE", sets: "3x15" },
+                { name: "CALF ALLA LEG PRESS", sets: "3x12" },
+                { name: "CALF MACHINE SEDUTO", sets: "4x10" }
+            ],
+            2: [
+                { name: "REMATORE BILANCIERE", sets: "4x12x10x8x6" },
+                { name: "LAT MACHINE", sets: "3x15" },
+                { name: "PULLEY", sets: "4x8" },
+                { name: "VERTICAL ROW", sets: "3x12" },
+                { name: "CURL BILANCIERE EZ", sets: "4x10" },
+                { name: "CURL IMPUGNATURA NEUTRA", sets: "3x12" },
+                { name: "CURL SINGOLO SU PANCA SCOTT", sets: "4x8" }
+            ],
+            3: [
+                { name: "HACK SQUAT", sets: "4x8" },
+                { name: "LEG EXTENSION", sets: "3x15" },
+                { name: "LEG PRESS", sets: "4x8" },
+                { name: "STACCHI MANUBRI", sets: "4x8" },
+                { name: "LEG CURL SDRAIATO", sets: "3x15" },
+                { name: "SHOULDER PRESS", sets: "4x8" },
+                { name: "ALZATE LATERALI", sets: "3x15" },
+                { name: "APERTURE POSTERIORI PANCA CURVA", sets: "3x12" }
+            ]
+        };
+
+        let db;
+        let timerInterval;
+        let remainingTime = 60;
+
+        // Inizializza IndexedDB
+        const request = indexedDB.open('WorkoutDB', 1);
+
+        request.onerror = (event) => {
+            showNotification('Errore nel caricamento dei dati', 'error');
+        };
+
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains('workout')) {
+                db.createObjectStore('workout');
+            }
+        };
+
+        request.onsuccess = (event) => {
+            db = event.target.result;
+            loadSavedData();
+        };
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.background = type === 'success' ? '#4CAF50' : '#f44336';
+            notification.style.display = 'block';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        function saveData() {
+            const data = {};
+            document.querySelectorAll('.exercise-card').forEach(card => {
+                const id = card.id;
+                const weights = Array.from(card.querySelectorAll('input[type="number"]')).map(input => input.value);
+                const notes = card.querySelector('.notes').value;
+                const completed = card.classList.contains('completed');
+                
+                data[id] = { weights, notes, completed };
+            });
+
+            const transaction = db.transaction(['workout'], 'readwrite');
+            const store = transaction.objectStore('workout');
+            store.put(data, 'workoutData');
+
+            transaction.oncomplete = () => {
+                showNotification('Dati salvati con successo');
+            };
+        }
+
+        function loadSavedData() {
+            const transaction = db.transaction(['workout'], 'readonly');
+            const store = transaction.objectStore('workout');
+            const request = store.get('workoutData');
+
+            request.onsuccess = () => {
+                const data = request.result;
+                if (data) {
+                    document.querySelectorAll('.exercise-card').forEach(card => {
+                        const id = card.id;
+                        if (data[id]) {
+                            const inputs = card.querySelectorAll('input[type="number"]');
+                            data[id].weights.forEach((weight, index) => {
+                                if (inputs[index]) inputs[index].value = weight;
+                            });
+                            card.querySelector('.notes').value = data[id].notes;
+                            if (data[id].completed) {
+                                card.classList.add('completed');
+                                card.querySelector('button:last-of-type').textContent = 'Annulla';
+                            }
+                        }
+                    });
+                }
+            };
+        }
+
+        function exportData() {
+            const transaction = db.transaction(['workout'], 'readonly');
+            const store = transaction.objectStore('workout');
+            const request = store.get('workoutData');
+
+            request.onsuccess = () => {
+                const data = request.result;
+                if (data) {
+                    const dataStr = JSON.stringify(data);
+                    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                    const exportFileDefaultName = 'workout-data.json';
+
+                    const linkElement = document.createElement('a');
+                    linkElement.setAttribute('href', dataUri);
+                    linkElement.setAttribute('download', exportFileDefaultName);
+                    linkElement.click();
+                }
+            };
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        const transaction = db.transaction(['workout'], 'readwrite');
+                        const store = transaction.objectStore('workout');
+                        store.put(data, 'workoutData');
+
+                        transaction.oncomplete = () => {
+                            loadSavedData();
+                            showNotification('Dati importati con successo');
+                        };
+                    } catch (error) {
+                        showNotification('Errore nell\'importazione dei dati', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        function resetData() {
+            if (confirm('Sei sicuro di voler resettare tutti i dati? Questa azione non può essere annullata.')) {
+                const transaction = db.transaction(['workout'], 'readwrite');
+                const store = transaction.objectStore('workout');
+                store.delete('workoutData');
+
+                transaction.oncomplete = () => {
+                    document.querySelectorAll('.exercise-card').forEach(card => {
+                        card.querySelectorAll('input[type="number"]').forEach(input => input.value = '');
+                        card.querySelector('.notes').value = '';
+                        card.classList.remove('completed');
+                        card.querySelector('button:last-of-type').textContent = 'Completa';
+                    });
+                    showNotification('Dati resettati con successo');
+                };
+            }
+        }
+
+        function createExerciseCard(exercise) {
+            const sets = exercise.sets.split('x');
+            let weightInputsHTML = '';
+            
+            sets.forEach((reps, index) => {
+                weightInputsHTML += `
+                    <div class="weight-input">
+                        <input type="number" 
+                               placeholder="Peso serie ${index + 1}" 
+                               data-set="${index + 1}"
+                               onchange="saveData()">
+                        <span class="reps">${reps} rep</span>
+                    </div>
+                `;
+            });
+
+            return `
+                <div class="exercise-card" id="exercise-${exercise.name.replace(/\s+/g, '-')}">
+                    <div class="exercise-header">
+                        <div class="exercise-info">
+                            <div class="exercise-title">${exercise.name}</div>
+                            <div class="sets-info">Serie: ${exercise.sets}</div>
+                        </div>
+                    </div>
+                    <div class="weight-inputs">
+                        ${weightInputsHTML}
+                    </div>
+                    <div class="controls">
+                        <button onclick="startTimer()">Timer</button>
+                        <button onclick="toggleCompletion(this)">Completa</button>
+                    </div>
+                    <textarea class<textarea class="notes" placeholder="Note" onchange="saveData()"></textarea>
+                </div>
+            `;
+        }
+
+        function initializeDay(day) {
+            const container = document.getElementById(`day${day}`);
+            const exercises = workoutData[day];
+            let html = '';
+            
+            exercises.forEach(exercise => {
+                html += createExerciseCard(exercise);
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function showDay(day) {
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            document.getElementById(`day${day}`).classList.add('active');
+            document.querySelectorAll('.tab')[day-1].classList.add('active');
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            remainingTime = 60;
+            document.getElementById('timer').classList.add('active');
+            
+            timerInterval = setInterval(() => {
+                remainingTime--;
+                document.getElementById('timer-display').textContent = `Riposo: ${remainingTime}s`;
+                
+                if (remainingTime <= 0) {
+                    stopTimer();
+                    // Opzionale: riprodurre un suono quando il timer finisce
+                    new Audio('data:audio/wav;base64,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qJrx4KOQjahZxWbcZgztj2c49nKmkId44S71j0c8eV9yDK6uPRzx5X18eDvjvQ6yKo9ZSS6l//8elePK/Lf//IInrOF/FvDoADYAGBMGb7FtErm5MXMlmPAJQVgWta7Zx2go+8xJ0UiCb8LHHdftWyLJE0QIAIsI+UbXu67dZMjmgDGCGl1H+vpF4NSDckSIkk7Vd+sxEhBQMRU8j/12UIRhzSaUdQ+rQU5kGeFxm+hb1oh6pWWmv3uvmReDl0UnvtapVaIzo1jZbf/pD6ElLqSX+rUmOQNpJFa/r+sa4e/pBlAABoAAAAA3CUgShLdGIxsY7AUABPRrgCABdDuQ5GC7DqPQCgbbJUAoRSUj+NIEig0YfyWUho1VBBBA//uQZB4ABZx5zfMakeAAAAmwAAAAF5F3P0w9GtAAACfAAAAAwLhMDmAYWMgVEG1U0FIGCBgXBXAtfMH10000EEEEEECUBYln03TTTdNBDZopopYvrTTdNa325mImNg3TTPV9q3pmY0xoO6bv3r00y+IDGid/9aaaZTGMuj9mpu9Mpio1dXrr5HERTZSmqU36A3CumzN/9Robv/Xx4v9ijkSRSNLQhAWumap82WRSBUqXStV/YcS+XVLnSS+WLDroqArFkMEsAS+eWmrUzrO0oEmE40RlMZ5+ODIkAyKAGUwZ3mVKmcamcJnMW26MRPgUw6j+LkhyHGVGYjSUUKNpuJUQoOIAyDvEyG8S5yfK6dhZc0Tx1KI/gviKL6qvvFs1+bWtaz58uUNnryq6kt5RzOCkPWlVqVX2a/EEBUdU1KrXLf40GoiiFXK///qpoiDXrOgqDR38JB0bw7SoL+ZB9o1RCkQjQ2CBYZKd/+VJxZRRZlqSkKiws0WFxUyCwsKiMy7hUVFhIaCrNQsKkTIsLivwKKigsj8XYlwt/WKi2N4d//uQRCSAAjURNIHpMZBGYiaQPSYyAAABLAAAAAAAACWAAAAApUF/Mg+0aohSIRobBAsMlO//Kk4soosy1JSFRYWaLC4qZBYWFRGZdwqKiwkNBVmoWFSJkWFxX4FFRQWR+LsS4W/rFRb/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////VEFHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAU291bmRib3kuZGUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMjAwNGh0dHA6Ly93d3cuc291bmRib3kuZGUAAAAAAAAAACU=').play();
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            document.getElementById('timer').classList.remove('active');
+        }
+
+        function toggleCompletion(button) {
+            const card = button.closest('.exercise-card');
+            card.classList.toggle('completed');
+            button.textContent = card.classList.contains('completed') ? 'Annulla' : 'Completa';
+            saveData();
+        }
+
+        // Inizializza tutti i giorni
+        initializeDay(1);
+        initializeDay(2);
+        initializeDay(3);
+    </script>
+</body>
+</html>
